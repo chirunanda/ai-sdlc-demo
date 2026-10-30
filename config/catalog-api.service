@@ -1,0 +1,14 @@
+[Unit]
+Description=Catalog Java API
+After=network.target
+
+[Service]
+User=app
+WorkingDirectory=/opt/app/api
+ExecStart=/usr/bin/java -Xmx256m -jar /opt/app/api/catalog-api.jar
+Restart=on-failure
+RestartSec=3
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

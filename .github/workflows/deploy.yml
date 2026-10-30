@@ -1,0 +1,159 @@
+name: Deploy
+
+# main -> risk score -> CodeBuild (build+test) -> CodeDeploy (in-place, auto rollback)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # GitHub OIDC -> AWS, no stored AWS keys
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ARTIFACT_BUCKET: ${{ vars.ARTIFACT_BUCKET }}
+  CODEBUILD_PROJECT: ${{ vars.CODEBUILD_PROJECT }}
+  CODEDEPLOY_APP: ${{ vars.CODEDEPLOY_APP }}
+  CODEDEPLOY_GROUP: ${{ vars.CODEDEPLOY_GROUP }}
+
+jobs:
+  risk:
+    name: AI release risk score
+    runs-on: ubuntu-latest
+    outputs:
+      level: ${{ steps.score.outputs.level }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - id: score
+        run: node scripts/ai/risk-score.mjs
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  build:
+    name: CodeBuild
+    runs-on: ubuntu-latest
+    outputs:
+      bucket: ${{ steps.result.outputs.bucket }}
+      key: ${{ steps.result.outputs.key }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Upload source to S3
+        run: |
+          git archive --format=zip -o source.zip HEAD
+          aws s3 cp source.zip "s3://${ARTIFACT_BUCKET}/source/${GITHUB_SHA}.zip"
+
+      - name: Run CodeBuild
+        id: cb
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name "$CODEBUILD_PROJECT" \
+            --source-location-override "${ARTIFACT_BUCKET}/source/${GITHUB_SHA}.zip" \
+            --query 'build.id' --output text)
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "Started $BUILD_ID"
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds --ids "$BUILD_ID" --query 'builds[0].buildStatus' --output text)
+            echo "status: $STATUS"
+            [ "$STATUS" = "IN_PROGRESS" ] || break
+            sleep 15
+          done
+          [ "$STATUS" = "SUCCEEDED" ]
+
+      - name: Get build logs (on failure)
+        if: failure() && steps.cb.outputs.build_id != ''
+        env:
+          BUILD_ID: ${{ steps.cb.outputs.build_id }}
+        run: |
+          read -r GROUP STREAM < <(aws codebuild batch-get-builds --ids "$BUILD_ID" \
+            --query 'builds[0].logs.[groupName,streamName]' --output text)
+          aws logs get-log-events --log-group-name "$GROUP" --log-stream-name "$STREAM" \
+            --limit 2000 --query 'events[].message' --output json | jq -r '.[]' > codebuild.log || true
+
+      - name: AI triage of build failure
+        if: failure() && steps.cb.outputs.build_id != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BUILD_ID: ${{ steps.cb.outputs.build_id }}
+        run: node scripts/ai/triage.mjs --file codebuild.log --kind build --title "CodeBuild $BUILD_ID"
+
+      - name: Locate build artifact
+        id: result
+        env:
+          BUILD_ID: ${{ steps.cb.outputs.build_id }}
+        run: |
+          LOCATION=$(aws codebuild batch-get-builds --ids "$BUILD_ID" --query 'builds[0].artifacts.location' --output text)
+          OBJECT=${LOCATION#arn:aws:s3:::}
+          echo "bucket=${OBJECT%%/*}" >> "$GITHUB_OUTPUT"
+          echo "key=${OBJECT#*/}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: CodeDeploy
+    needs: [risk, build]
+    runs-on: ubuntu-latest
+    # High-risk releases wait for a reviewer; others deploy straight away.
+    environment: ${{ needs.risk.outputs.level == 'high' && 'production-high-risk' || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Create deployment
+        id: dep
+        env:
+          BUCKET: ${{ needs.build.outputs.bucket }}
+          KEY: ${{ needs.build.outputs.key }}
+          RISK: ${{ needs.risk.outputs.level }}
+        run: |
+          DEPLOYMENT_ID=$(aws deploy create-deployment \
+            --application-name "$CODEDEPLOY_APP" \
+            --deployment-group-name "$CODEDEPLOY_GROUP" \
+            --s3-location bucket="$BUCKET",key="$KEY",bundleType=zip \
+            --description "GitHub run ${GITHUB_RUN_ID} (${GITHUB_SHA::7}), risk ${RISK}" \
+            --query deploymentId --output text)
+          echo "id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Deployment $DEPLOYMENT_ID created"
+
+      - name: Wait for deployment
+        env:
+          DEPLOYMENT_ID: ${{ steps.dep.outputs.id }}
+        run: aws deploy wait deployment-successful --deployment-id "$DEPLOYMENT_ID"
+
+      - name: Collect deployment diagnostics (on failure)
+        if: failure() && steps.dep.outputs.id != ''
+        env:
+          DEPLOYMENT_ID: ${{ steps.dep.outputs.id }}
+        run: |
+          aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" > deployment.log
+          TARGETS=$(aws deploy list-deployment-targets --deployment-id "$DEPLOYMENT_ID" --query 'targetIds' --output text)
+          aws deploy batch-get-deployment-targets --deployment-id "$DEPLOYMENT_ID" --target-ids $TARGETS >> deployment.log || true
+
+      - name: AI triage of deployment failure
+        if: failure() && steps.dep.outputs.id != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEPLOYMENT_ID: ${{ steps.dep.outputs.id }}
+        run: node scripts/ai/triage.mjs --file deployment.log --kind deploy --title "Deployment $DEPLOYMENT_ID (auto-rollback expected)"

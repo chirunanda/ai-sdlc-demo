@@ -1,0 +1,47 @@
+version: 0.2
+
+# AWS CodeBuild: test everything, then stage a CodeDeploy bundle in build-output/.
+# Bundle layout (appspec.yml must be at the root of the zip):
+#   appspec.yml  scripts/  config/  api/catalog-api.jar  bff/  web/
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto21
+      nodejs: 20
+  pre_build:
+    commands:
+      - echo "Installing dependencies"
+      - (cd frontend && npm ci)
+      - (cd bff && npm ci)
+  build:
+    commands:
+      - echo "Testing and building Java API"
+      - (cd api && mvn -B -ntp verify)
+      - echo "Testing BFF"
+      - (cd bff && npm test)
+      - echo "Testing and building frontend"
+      - (cd frontend && npm test && npm run build)
+  post_build:
+    commands:
+      - echo "Staging deployment bundle"
+      - rm -rf build-output && mkdir -p build-output/api build-output/web build-output/bff
+      - cp api/target/catalog-api.jar build-output/api/
+      - cp -r frontend/dist/. build-output/web/
+      - cp -r bff/src bff/package.json bff/package-lock.json build-output/bff/
+      - (cd build-output/bff && npm ci --omit=dev)
+      - cp -r scripts/deploy build-output/scripts
+      - cp -r config build-output/config
+      - cp appspec.yml build-output/appspec.yml
+      - chmod +x build-output/scripts/*.sh
+
+reports:
+  java-unit-tests:
+    files:
+      - "api/target/surefire-reports/*.xml"
+    file-format: JUNITXML
+
+artifacts:
+  base-directory: build-output
+  files:
+    - "**/*"

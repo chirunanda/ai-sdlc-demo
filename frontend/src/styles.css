@@ -1,0 +1,52 @@
+:root {
+  --ink: #16202a;
+  --muted: #5b6773;
+  --paper: #f4f6f7;
+  --line: #d5dbe0;
+  --pine: #1f5e4b;
+  --rust: #a4401f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+}
+
+.page {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 4rem;
+}
+
+.head h1 {
+  margin: 0;
+  font-size: 2.25rem;
+  letter-spacing: -0.02em;
+}
+.head p { margin: 0.25rem 0 2rem; color: var(--muted); }
+
+.list { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.row h2 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+.cat { color: var(--muted); font-size: 0.9rem; }
+
+.meta { display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; }
+.price { font-weight: 600; }
+.ok { color: var(--pine); font-size: 0.9rem; }
+.out { color: var(--rust); font-size: 0.9rem; }
+.error { color: var(--rust); }
+
+:focus-visible { outline: 3px solid var(--pine); outline-offset: 2px; }

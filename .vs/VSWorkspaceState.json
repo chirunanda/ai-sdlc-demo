@@ -1,0 +1,13 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\api",
+    "\\config",
+    "\\frontend",
+    "\\frontend\\src",
+    "\\infra",
+    "\\scripts",
+    "\\scripts\\ai"
+  ],
+  "PreviewInSolutionExplorer": false
+}
