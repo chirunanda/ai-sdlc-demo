@@ -1,0 +1,15 @@
+[Unit]
+Description=Catalog Node.js BFF
+After=network.target catalog-api.service
+
+[Service]
+User=app
+WorkingDirectory=/opt/app/bff
+Environment=PORT=3000
+Environment=API_BASE_URL=http://127.0.0.1:8080
+ExecStart=/usr/bin/env node /opt/app/bff/src/server.js
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

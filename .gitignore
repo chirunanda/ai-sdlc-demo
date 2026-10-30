@@ -1,0 +1,8 @@
+node_modules/
+dist/
+target/
+build-output/
+*.log
+pr.diff
+.env
+.DS_Store
