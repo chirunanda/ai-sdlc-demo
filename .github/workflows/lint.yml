@@ -1,0 +1,29 @@
+name: Lint
+
+# Catches broken workflows, CloudFormation and deploy scripts before they reach main.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install linters
+        run: pip install actionlint-py cfn-lint yamllint
+      - name: GitHub Actions workflows
+        run: actionlint
+      - name: CloudFormation template
+        run: cfn-lint infra/pipeline.yml
+      - name: YAML syntax
+        run: yamllint .github buildspec.yml appspec.yml infra
+      - name: Shell scripts (syntax)
+        run: for f in scripts/deploy/*.sh scripts/flaky-check.sh; do bash -n "$f"; done
