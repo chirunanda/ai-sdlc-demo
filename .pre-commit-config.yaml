@@ -1,0 +1,27 @@
+# Runs on every `git commit`. Setup (once):
+#   pip install pre-commit actionlint-py cfn-lint yamllint
+#   pre-commit install
+# Run on all files any time:  pre-commit run --all-files
+repos:
+  - repo: local
+    hooks:
+      - id: actionlint
+        name: actionlint (GitHub Actions workflows)
+        entry: actionlint
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+      - id: cfn-lint
+        name: cfn-lint (CloudFormation)
+        entry: cfn-lint
+        language: system
+        files: ^infra/.*\.ya?ml$
+      - id: yamllint
+        name: yamllint (YAML syntax)
+        entry: yamllint
+        language: system
+        files: \.(ya?ml)$
+      - id: shell-syntax
+        name: bash -n (deploy scripts)
+        entry: bash -n
+        language: system
+        files: ^scripts/.*\.sh$
