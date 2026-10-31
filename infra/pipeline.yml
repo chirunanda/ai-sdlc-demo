@@ -24,7 +24,7 @@ Parameters:
     Type: AWS::EC2::VPC::Id
   SubnetId:
     Type: AWS::EC2::Subnet::Id
-    Description: A public subnet that auto-assigns public IPv4 addresses (the default VPC subnets do).
+    Description: A public subnet, meaning its route table has a route to an internet gateway (default VPC subnets are).
   InstanceType:
     Type: String
     Default: t3.small
@@ -250,9 +250,13 @@ Resources:
     Properties:
       ImageId: !Ref LatestAmiId
       InstanceType: !Ref InstanceType
-      SubnetId: !Ref SubnetId
-      SecurityGroupIds: [!Ref WebSecurityGroup]
       IamInstanceProfile: !Ref InstanceProfile
+      # Always request a public IP, even if the subnet does not auto-assign one.
+      NetworkInterfaces:
+        - DeviceIndex: "0"
+          AssociatePublicIpAddress: true
+          SubnetId: !Ref SubnetId
+          GroupSet: [!Ref WebSecurityGroup]
       MetadataOptions:
         HttpTokens: required
       Tags:
@@ -325,8 +329,10 @@ Resources:
           - Name: !Ref HostHealthAlarm
 
 Outputs:
-  SiteUrl:
-    Value: !Sub http://${WebInstance.PublicIp}
+  # Not read from the instance attribute on purpose: a missing public IP must not fail the stack.
+  FindSiteIp:
+    Description: Run this command to get the site address after the stack is created.
+    Value: !Sub "aws ec2 describe-instances --region ${AWS::Region} --instance-ids ${WebInstance} --query Reservations[0].Instances[0].PublicIpAddress --output text"
   InstanceId:
     Value: !Ref WebInstance
   ArtifactBucket:
