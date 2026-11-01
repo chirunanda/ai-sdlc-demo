@@ -115,6 +115,9 @@ Re-run the failed Deploy workflow, or push a commit. When it finishes, open the 
 
 If a deployment fails, the workflow posts an AI explanation in the run summary, and CodeDeploy rolls back to the last good version on its own. On the very first deployment there is nothing to roll back to, so check `journalctl -u catalog-api -u catalog-bff` through SSM (below).
 
+## Screenshots
+<img src="docs/images/awsoutput.png" alt="Product list" width="600">
+
 ## Manual-only steps
 
 These cannot be done from files in the repo. Menu names change over time, so look for the feature by name.
