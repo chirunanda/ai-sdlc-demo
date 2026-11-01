@@ -16,6 +16,9 @@ permissions:
 
 jobs:
   analyze:
+    # Code scanning needs a public repo or GitHub Code Security on a private one.
+    # Turn this job on by setting the repository variable ENABLE_CODEQL to "true".
+    if: vars.ENABLE_CODEQL == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
