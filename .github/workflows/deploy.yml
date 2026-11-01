@@ -31,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       - id: score
@@ -48,7 +48,7 @@ jobs:
       key: ${{ steps.result.outputs.key }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       # TEMPORARY: prints the OIDC claims GitHub sends, to debug "Not authorized to perform sts:AssumeRoleWithWebIdentity".
@@ -128,7 +128,7 @@ jobs:
     environment: ${{ needs.risk.outputs.level == 'high' && 'production-high-risk' || 'production' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
       # TEMPORARY: prints the OIDC claims GitHub sends, to debug "Not authorized to perform sts:AssumeRoleWithWebIdentity".
