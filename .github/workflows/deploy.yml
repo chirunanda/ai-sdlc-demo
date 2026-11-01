@@ -28,7 +28,7 @@ jobs:
     outputs:
       level: ${{ steps.score.outputs.level }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/setup-node@v4
@@ -47,7 +47,7 @@ jobs:
       bucket: ${{ steps.result.outputs.bucket }}
       key: ${{ steps.result.outputs.key }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -127,7 +127,7 @@ jobs:
     # High-risk releases wait for a reviewer; others deploy straight away.
     environment: ${{ needs.risk.outputs.level == 'high' && 'production-high-risk' || 'production' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 20
