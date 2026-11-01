@@ -10,8 +10,10 @@ Parameters:
     AllowedPattern: "[a-z0-9-]{3,30}"
   GitHubRepo:
     Type: String
-    Description: GitHub repository as org/repo
-    AllowedPattern: "[A-Za-z0-9._-]+/[A-Za-z0-9._-]+"
+    Description: >
+      GitHub repository exactly as it appears in the OIDC token subject, without the leading "repo:".
+      Usually owner/repo. If your tokens include numeric IDs, use owner@OWNERID/repo@REPOID.
+    AllowedPattern: "[A-Za-z0-9._-]+(@[0-9]+)?/[A-Za-z0-9._-]+(@[0-9]+)?"
   GitHubBranch:
     Type: String
     Default: main
