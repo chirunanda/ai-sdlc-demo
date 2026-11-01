@@ -179,7 +179,8 @@ jobs:
         run: |
           aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" > deployment.log
           TARGETS=$(aws deploy list-deployment-targets --deployment-id "$DEPLOYMENT_ID" --query 'targetIds' --output text)
-          aws deploy batch-get-deployment-targets --deployment-id "$DEPLOYMENT_ID" --target-ids $TARGETS >> deployment.log || true
+          read -r -a TARGET_IDS <<< "$TARGETS"
+          aws deploy batch-get-deployment-targets --deployment-id "$DEPLOYMENT_ID" --target-ids "${TARGET_IDS[@]}" >> deployment.log || true
 
       - name: AI triage of deployment failure
         if: failure() && steps.dep.outputs.id != ''
