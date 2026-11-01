@@ -35,4 +35,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
-        run: node scripts/ai/triage.mjs --file failed.log --kind ci --title "CI run #$RUN_NUMBER"
+        run: |
+          node scripts/ai/triage.mjs --file failed.log --kind ci --title "CI run #$RUN_NUMBER"

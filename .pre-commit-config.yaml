@@ -1,5 +1,6 @@
 # Runs on every `git commit`. Setup (once):
-#   pip install pre-commit actionlint-py cfn-lint yamllint
+#   pip install pre-commit actionlint-py cfn-lint yamllint shellcheck-py
+#   (shellcheck-py lets actionlint check the shell inside workflow steps, as GitHub's runner does)
 #   pre-commit install
 # Run on all files any time:  pre-commit run --all-files
 repos:
@@ -20,8 +21,8 @@ repos:
         entry: yamllint
         language: system
         files: \.(ya?ml)$
-      - id: shell-syntax
-        name: bash -n (deploy scripts)
-        entry: bash -n
+      - id: shellcheck
+        name: shellcheck (deploy scripts)
+        entry: shellcheck
         language: system
         files: ^scripts/.*\.sh$

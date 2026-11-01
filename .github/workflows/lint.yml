@@ -25,5 +25,5 @@ jobs:
         run: cfn-lint infra/pipeline.yml
       - name: YAML syntax
         run: yamllint .github buildspec.yml appspec.yml infra
-      - name: Shell scripts (syntax)
-        run: for f in scripts/deploy/*.sh scripts/flaky-check.sh; do bash -n "$f"; done
+      - name: Shell scripts
+        run: shellcheck scripts/deploy/*.sh scripts/flaky-check.sh
