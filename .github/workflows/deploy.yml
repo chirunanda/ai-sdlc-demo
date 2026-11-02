@@ -1,9 +1,27 @@
 name: Deploy
 
 # main -> risk score -> CodeBuild (build+test) -> CodeDeploy (in-place, auto rollback)
+#
+# Pushes to main deploy automatically ONLY when the repository variable AUTO_DEPLOY is "true".
+# Otherwise deploy on demand:  gh workflow run Deploy --repo OWNER/REPO
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/dependabot.yml"
+      - ".github/copilot-instructions.md"
+      - ".github/workflows/lint.yml"
+      - ".github/workflows/codeql.yml"
+      - ".github/workflows/flaky-check.yml"
+      - ".github/workflows/ai-pr-review.yml"
+      - ".github/workflows/ai-failure-triage.yml"
+      - ".pre-commit-config.yaml"
+      - ".yamllint"
+      - ".gitignore"
+      - ".gitattributes"
+      - ".editorconfig"
   workflow_dispatch:
 
 concurrency:
@@ -24,6 +42,9 @@ env:
 jobs:
   risk:
     name: AI release risk score
+    # Manual runs always go; pushes only when auto-deploy is switched on.
+    # Every later job needs this one, so skipping it skips the whole pipeline.
+    if: github.event_name == 'workflow_dispatch' || vars.AUTO_DEPLOY == 'true'
     runs-on: ubuntu-latest
     outputs:
       level: ${{ steps.score.outputs.level }}
@@ -42,6 +63,7 @@ jobs:
 
   build:
     name: CodeBuild
+    needs: risk
     runs-on: ubuntu-latest
     outputs:
       bucket: ${{ steps.result.outputs.bucket }}
@@ -51,21 +73,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # TEMPORARY: prints the OIDC claims GitHub sends, to debug "Not authorized to perform sts:AssumeRoleWithWebIdentity".
-      # Compare "sub" with the trust policy of the AWS role, then delete this step.
-      - name: Show OIDC claims (temporary)
-        run: |
-          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
-          export TOKEN
-          python3 - <<'PY'
-          import os, json, base64
-          payload = os.environ["TOKEN"].split(".")[1]
-          payload += "=" * (-len(payload) % 4)
-          claims = json.loads(base64.urlsafe_b64decode(payload))
-          print(json.dumps({k: claims.get(k) for k in ("sub", "aud", "iss")}, indent=2))
-          PY
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
@@ -131,21 +138,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # TEMPORARY: prints the OIDC claims GitHub sends, to debug "Not authorized to perform sts:AssumeRoleWithWebIdentity".
-      # Compare "sub" with the trust policy of the AWS role, then delete this step.
-      - name: Show OIDC claims (temporary)
-        run: |
-          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
-          export TOKEN
-          python3 - <<'PY'
-          import os, json, base64
-          payload = os.environ["TOKEN"].split(".")[1]
-          payload += "=" * (-len(payload) % 4)
-          claims = json.loads(base64.urlsafe_b64decode(payload))
-          print(json.dumps({k: claims.get(k) for k in ("sub", "aud", "iss")}, indent=2))
-          PY
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}

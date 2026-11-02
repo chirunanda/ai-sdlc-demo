@@ -26,4 +26,4 @@ jobs:
       - name: YAML syntax
         run: yamllint .github buildspec.yml appspec.yml infra
       - name: Shell scripts
-        run: shellcheck scripts/deploy/*.sh scripts/flaky-check.sh
+        run: shellcheck scripts/*.sh scripts/deploy/*.sh
