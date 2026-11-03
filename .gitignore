@@ -5,4 +5,10 @@ build-output/
 *.log
 pr.diff
 .env
+.env.*
 .DS_Store
+.vs/
+*.pem
+*.key
+*.tfvars
+.claude/settings.local.json
